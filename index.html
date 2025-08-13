@@ -3,14 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Flat Finder — Map & Filters</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <title>Flat Finder — Radius Search</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
 <header>
-  <h1>Flat Finder</h1>
-  <p>Search available flats by area, price, and bedrooms.</p>
+  <h1>Flat Finder (Radius Search)</h1>
 </header>
 
 <main>
@@ -30,12 +29,16 @@
         <option value="1">1+</option>
         <option value="2">2+</option>
         <option value="3">3+</option>
-        <option value="4">4+</option>
       </select>
     </div>
     <div class="control">
-      <button id="applyFilters">Apply filters</button>
-      <button id="resetFilters" class="secondary">Reset</button>
+      <label for="radiusKm">Radius (km)</label>
+      <input type="range" id="radiusKm" min="1" max="100" value="20" />
+      <span id="radiusLabel">20</span>
+    </div>
+    <div class="control">
+      <button id="setCenter">Set Search Center</button>
+      <button id="useLocation">Use My Location</button>
     </div>
   </section>
 
@@ -45,14 +48,7 @@
   </section>
 </main>
 
-<footer>
-  <small>
-    Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors •
-    Built for personal use. Data source depends on your configuration.
-  </small>
-</footer>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
