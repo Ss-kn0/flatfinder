@@ -1,115 +1,70 @@
-let map = L.map('map').setView([41.387, 2.17], 12);
+
+// script.js
+let map = L.map('map').setView([40.4168, -3.7038], 12); // Default Madrid
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
+    attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-let listings = [];
-let markers = [];
-let centerMarker = null;
-let centerCircle = null;
-let centerLat = 41.387;
-let centerLng = 2.17;
+let markersLayer = L.layerGroup().addTo(map);
+let searchCircle;
 
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2-lat1) * Math.PI/180;
-  const dLon = (lon2-lon1) * Math.PI/180;
-  const a = Math.sin(dLat/2)**2 +
-    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
-    Math.sin(dLon/2)**2;
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+function fetchNestoria(lat, lng, radiusKm) {
+    const url = `https://api.nestoria.es/api?action=search_listings&encoding=json&listing_type=buy&country=es&centre_point=${lat},${lng}&radius=${radiusKm}&number_of_results=50&page=1`;
+    
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            markersLayer.clearLayers();
+            if (searchCircle) searchCircle.remove();
+
+            searchCircle = L.circle([lat, lng], {
+                radius: radiusKm * 1000,
+                color: 'blue',
+                fillColor: '#3f51b5',
+                fillOpacity: 0.2
+            }).addTo(map);
+
+            if (data.response && data.response.listings) {
+                data.response.listings.forEach(listing => {
+                    if (listing.latitude && listing.longitude) {
+                        const popupContent = `
+                            <b>${listing.title}</b><br>
+                            ${listing.price_formatted || ''}<br>
+                            ${listing.bedroom_number || '?'} bedrooms<br>
+                            <img src="${listing.img_url}" alt="Property" style="width:150px;">
+                        `;
+                        L.marker([listing.latitude, listing.longitude])
+                            .bindPopup(popupContent)
+                            .addTo(markersLayer);
+                    }
+                });
+            }
+        })
+        .catch(err => console.error('Nestoria fetch error:', err));
 }
 
-async function loadData() {
-  const res = await fetch('data/listings.json');
-  listings = await res.json();
-  render();
-}
-
-function clearMarkers() {
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
-}
-
-function render() {
-  const minPrice = parseInt(document.getElementById('minPrice').value || '0', 10);
-  const maxPrice = parseInt(document.getElementById('maxPrice').value || '9999999', 10);
-  const bedrooms = parseInt(document.getElementById('bedrooms').value || '0', 10);
-  const radius = parseFloat(document.getElementById('radiusKm').value || '20');
-
-  if (centerCircle) {
-    centerCircle.setRadius(radius * 1000);
-  }
-
-  const filtered = listings.filter(l => {
-    const inPrice = l.price >= minPrice && l.price <= maxPrice;
-    const inBeds = (l.bedrooms || 0) >= bedrooms;
-    const dist = haversine(centerLat, centerLng, l.lat, l.lng);
-    return inPrice && inBeds && dist <= radius;
-  });
-
-  clearMarkers();
-  const listEl = document.getElementById('list');
-  listEl.innerHTML = '';
-
-  filtered.forEach(l => {
-    const marker = L.marker([l.lat, l.lng]).addTo(map);
-    marker.bindPopup(`<b>${l.title}</b><br>${l.price} € · ${l.bedrooms} bd`);
-    markers.push(marker);
-
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<h4>${l.title}</h4><p>${l.price} € — ${l.bedrooms} bd</p>`;
-    listEl.appendChild(card);
-  });
-}
-
-document.getElementById('radiusKm').addEventListener('input', e => {
-  document.getElementById('radiusLabel').textContent = e.target.value;
-  render();
-});
-document.getElementById('minPrice').addEventListener('input', render);
-document.getElementById('maxPrice').addEventListener('input', render);
-document.getElementById('bedrooms').addEventListener('change', render);
-
-document.getElementById('setCenter').addEventListener('click', () => {
-  map.once('click', e => {
-    centerLat = e.latlng.lat;
-    centerLng = e.latlng.lng;
-    if (centerMarker) map.removeLayer(centerMarker);
-    centerMarker = L.marker([centerLat, centerLng], { draggable: true }).addTo(map);
-    centerMarker.on('dragend', ev => {
-      centerLat = ev.target.getLatLng().lat;
-      centerLng = ev.target.getLatLng().lng;
-      if (centerCircle) centerCircle.setLatLng([centerLat, centerLng]);
-      render();
-    });
-    if (centerCircle) map.removeLayer(centerCircle);
-    centerCircle = L.circle([centerLat, centerLng], { radius: parseFloat(document.getElementById('radiusKm').value)*1000 }).addTo(map);
-    render();
-  });
-  alert('Click on the map to set the search center.');
+// 📍 User clicks on the map to set location
+map.on('click', function(e) {
+    const lat = e.latlng.lat.toFixed(5);
+    const lng = e.latlng.lng.toFixed(5);
+    const radiusKm = document.getElementById('radiusInput').value;
+    fetchNestoria(lat, lng, radiusKm);
 });
 
-document.getElementById('useLocation').addEventListener('click', () => {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      centerLat = pos.coords.latitude;
-      centerLng = pos.coords.longitude;
-      map.setView([centerLat, centerLng], 13);
-      if (centerMarker) map.removeLayer(centerMarker);
-      centerMarker = L.marker([centerLat, centerLng], { draggable: true }).addTo(map);
-      centerMarker.on('dragend', ev => {
-        centerLat = ev.target.getLatLng().lat;
-        centerLng = ev.target.getLatLng().lng;
-        if (centerCircle) centerCircle.setLatLng([centerLat, centerLng]);
-        render();
-      });
-      if (centerCircle) map.removeLayer(centerCircle);
-      centerCircle = L.circle([centerLat, centerLng], { radius: parseFloat(document.getElementById('radiusKm').value)*1000 }).addTo(map);
-      render();
-    });
-  }
+// 📍 Use current location
+document.getElementById('locateBtn').addEventListener('click', () => {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            map.setView([lat, lng], 12);
+            const radiusKm = document.getElementById('radiusInput').value;
+            fetchNestoria(lat, lng, radiusKm);
+        });
+    }
 });
 
-loadData();
+// 📍 Radius slider changes
+document.getElementById('radiusInput').addEventListener('input', function() {
+    document.getElementById('radiusValue').innerText = this.value + ' km';
+});
